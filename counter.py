@@ -116,7 +116,6 @@ class Counter:
                 found += 1
                 if found >= self.tresh: return found
         while found < self.tresh:
-            print("found:", found)
             MUS = self.getMUS(m)
             if len(MUS) == 0:
                 return found
