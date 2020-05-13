@@ -292,8 +292,8 @@ if __name__ == "__main__":
     unex = sys.argv[2]
     encoding, activators = exMUS(filename, unex)
     rid = randint(1,10000000)
-    qdimacs = "2exencoded_{}.qdimacs".format(rid)
-    simpl = "simplified_" + qdimacs 
+    qdimacs = "/var/tmp/2exencoded_{}.qdimacs".format(rid)
+    simpl = "/var/tmp/simplified_{}.qdimacs".format(rid)
     with open(qdimacs, "w") as f:
         f.write(encoding)
     simplify2(qdimacs, simpl)

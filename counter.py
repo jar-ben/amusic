@@ -70,7 +70,7 @@ class Counter:
     ## TODO: avoid external calling of gqbf.py, just integrate it
     def getMUS(self, m):
         self.checks += 1
-        unexXor = "unex_{}.cnf".format(self.rid)
+        unexXor = "/var/tmp/unex_{}.cnf".format(self.rid)
         with open(unexXor, "w") as f:
             f.write("p cnf 0 0\n")
             for MUS in self.MUSes:
