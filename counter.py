@@ -6,6 +6,7 @@ import random
 import time
 from statistics import median
 from random import randint
+import argparse
 
 #parse .gcnf instance, 
 #returns a pair C,B where B contains the base (hard) clauses and C the other clauses
@@ -38,8 +39,6 @@ class Counter:
         self.XOR = None
         self.tresh = 1 + 9.84 * (1 + (e / (1 + e)))*(1 + 1/e)*(1 + 1/e)
         self.t = int(17 * log(3 / d,2));
-        #self.tresh = 30 #lowered just for experimental reasons
-        #self.t = 10 #lowered just for experimental reasons
         self.checks = 0
         self.rid = randint(1,10000000)
 
@@ -82,7 +81,7 @@ class Counter:
             #    f.write(" ".join([str(-l) for l in MUS]) + " ")
             #    f.write(" ".join([str(l) for l in self.complement(MUS)]) + " 0\n")
             f.write(self.exportXor(m))
-        cmd = "python3 gqbf.py {} {}".format(filename, unexXor)
+        cmd = "python3 gqbf.py {} {}".format(self.filename, unexXor)
         proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
         (out, err) = proc.communicate()
         out = out.decode("utf-8")
@@ -170,7 +169,7 @@ class Counter:
         counts = []
         m = int(self.dimension / 2)
         for iteration in range(self.t):
-            print("iteration: " + str(iteration))
+            print("iteration: " + str(iteration + 1))
             count, m = self.approxMC(m)
             if count > 0:
                 counts.append(count)
@@ -180,11 +179,35 @@ class Counter:
                 print("bsat failed")
 
 
+def restricted_float(x):
+    try:
+        x = float(x)
+    except ValueError:
+        raise argparse.ArgumentTypeError("%r not a floating-point literal" % (x,))
+
+    if x < 0.0 or x > 1.0:
+        raise argparse.ArgumentTypeError("%r not in range [0.0, 1.0]"%(x,))
+    return x
+
 import sys
 if __name__ == "__main__":
-    assert len(sys.argv) == 2
-    filename = sys.argv[1]
-    counter = Counter(filename, 0.8, 0.2)
-    print("thresh", counter.tresh)
-    print("t:", counter.t)
+    parser = argparse.ArgumentParser("AMUSIC - Probabilistic Approximate Counter of Minimal Unsatisfiable Subsets") 
+    parser.add_argument("--verbose", "-v", action="count", help = "Use the flag to increase the verbosity of the outputs. The flag can be used repeatedly.")
+    parser.add_argument("--epsilon", "-e", type = float, help = "Set the epsilon parameter, i.e., controls the approximation factor of the algorithm. Allowed values: float (> 0). Default value is 0.8.", default = 0.8)
+    parser.add_argument("--delta", "-d", type = restricted_float, help = "Set the delta parameter, i.e., controls the probabilistic guarantees of the algorithm. Allowed values: float (0-1). Default value is 0.2.", default = 0.2)
+    parser.add_argument("--threshold", type = int, help = "Set manually the value of threshold. By default, the value of threshold is computed based on the epsilon parameter to guarantee the approximate guarantees that are required/set by epsilon. If you set threshold manually, you affect the guaranteed approximate factor of the algorithm.")
+    parser.add_argument("--iterations", type = int, help = "Set manually the number of iterations the algorithm performs to find the MUS count estimate. By default, the number of iterations is determined by the value of the delta parameter (which controls the required probabilistic guarantees). By manually setting the number of iterations, you affect the probabilistic guarantees.")
+    parser.add_argument("input_file", help = "A path to the input file. Either a .cnf or a .gcnf instance. See ./examples/")
+    args = parser.parse_args()
+
+    counter = Counter(args.input_file, args.epsilon, args.delta)
+    if args.threshold is not None:
+        counter.tresh = args.threshold
+    if args.iterations is not None:
+        counter.t = args.iterations
+
+    print("epsilon guarantee:", args.epsilon)
+    print("delta guarantee:", args.delta)
+    print("threshold", counter.tresh)
+    print("iterations to complete:", counter.t)
     counter.run()
