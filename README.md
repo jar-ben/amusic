@@ -31,18 +31,21 @@ python3 counter.py -h
 ```
 
 ## Related Tools
-AMUSIC is the first (and as far as we know the only one) probabilistic approximate counter of Minimal Unsatisfiable Subsets. If you want to find the exact MUS count, you should use a comple MUS enumeration algorithm to enumerate all the MUSes. In particular, for the exact MUS count, give a try to our MUS enumeration tool: https://github.com/jar-ben/mustool
+AMUSIC is the first (and as far as we know the only one) probabilistic approximate counter of Minimal Unsatisfiable Subsets. If you want to find the exact MUS count, you should use a comple MUS enumeration algorithm to enumerate all the MUSes. In particular, for the exact MUS count, give a try to our MUS enumeration tool MUST [1]: https://github.com/jar-ben/mustool
 
-Also, note that AMUSIC is suitable especially in the case where the MUS count is too large (e.g., millions of MUSes) to be able to be determined by a complete MUS enumeration algorithm in a reasonable time. However, if the MUS count is relatively low, we propose to use a complete MUS enumeration algorithm (https://github.com/jar-ben/mustool) as it will be probably much faster than AMUSIC. 
+Also, note that AMUSIC is suitable especially in the case where the MUS count is too large (e.g., millions of MUSes) to be able to be determined by a complete MUS enumeration algorithm in a reasonable time. However, if the MUS count is relatively low, we recommend to use a complete MUS enumeration algorithm (https://github.com/jar-ben/mustool) as it will be probably much faster than AMUSIC. 
+
+## Citation
+If you use AMUSIC in your research, please, cite our paper that presented AMUSIC:
+> Jaroslav Bendík and Kudeep S. Meel: Approximate Counting of Minimal Unsatisfiable Subsets. CAV 2020 (to appear).
 
 ## References
 
-* [1] Jaroslav Bendík and Kudeep S. Meel: Approximate Counting of Minimal Unsatisfiable Subsets. CAV 2020.
+* [1] https://github.com/jar-ben/mustool
 * [2] https://bitbucket.org/anton_belov/muser2
 * [3] https://pysathq.github.io/
 * [4] https://github.com/ltentrup/caqe
 * [5] https://github.com/lonsing/qratpreplus
-
 
 ## Contact
 In case of any troubles, do not hesitate to contact me, Jaroslav Bendik, the developer of the tool, at xbendik=at=gmail.com.
