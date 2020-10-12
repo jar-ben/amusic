@@ -1,7 +1,6 @@
 import sys
 from math import log
 import subprocess as sp
-#sys.path.insert(0, "/home/xbendik/usr/lib/lib/python3.7/site-packages")
 import random
 import time
 from statistics import median

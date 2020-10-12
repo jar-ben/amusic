@@ -1,8 +1,7 @@
 import sys
 from random import randint
 
-#sys.path.insert(0, "/home/xbendik/usr/lib/lib/python3.7/site-packages")
-sys.path.insert(0, "/home/xbendik/usr/lib/lib/python2.7/site-packages")
+#sys.path.insert(0, "/home/xbendik/usr/lib/lib/python2.7/site-packages")
 def prnt(cnf):
     result = "\n\n\n"
     for cl in cnf:
@@ -243,7 +242,7 @@ def parse(filename):
 import subprocess as sp
 
 def compute(filename, activators):
-    cmd = "/home/xbendik/bin/caqe/target/release/caqe --qdo {}".format(filename)
+    cmd = "./tools/caqe --qdo {}".format(filename)
     proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
     (out, err) = proc.communicate()
     out = out.decode("utf-8")
@@ -270,15 +269,8 @@ def compute(filename, activators):
         print("UNSATISFIABLE")
 
 
-def simplify(filename, result):
-    cmd = "/home/xbendik/bin/qbfrelay/qbfrelay.sh -p {} {} > /dev/null 2>&1".format(result, filename)
-    proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
-    (out, err) = proc.communicate()
-    print("simplified")
-
-
 def simplify2(filename, result):
-    cmd = "/home/xbendik/bin/qratpreplus/qratpre+ --print-formula {} > {}".format(filename, result)
+    cmd = "./tools/qratpre+ --print-formula {} > {}".format(filename, result)
     proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
     (out, err) = proc.communicate()
     out = out.decode("utf-8")
