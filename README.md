@@ -11,7 +11,7 @@ AMUSIC uses the python API of PysAT [3]. You can install PySAT via `pip3 install
 Download CAQE [4] from https://github.com/ltentrup/caqe and build it. Copy the binary of caqe (located at caqe/target/release/caqe) to the folder amusic/tools/.
 
 #### QRATPre+
-Download QRATPre+ [5] from https://github.com/ltentrup/caqe and build it.  Copy the binary of qratpre+ (located at qratpreplus/qratpre+) to the folder amusic/tools/. 
+Download QRATPre+ [5] from https://github.com/lonsing/qratpreplus and build it.  Copy the binary of qratpre+ (located at qratpreplus/qratpre+) to the folder amusic/tools/. 
 
 Note that we use also a single MUS extractor muser2 [2]; we distribute its binary with our tool (you do not have to build it).
 After installing all the necessary tools, the folder amusic/tools/ should contain three binaries: caqe, muser2-para, qratpre+.
