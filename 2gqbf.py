@@ -201,19 +201,28 @@ def exMUS(constraints, unex):
     X = []
 
     #P is in the cell and unexplored
+    tmp_current = current
     unexAndXor, current = parseUnex(unex, activators, current)
+    unexCurrents = [i + 1 for i in range(tmp_current, current)]
+    prnt(unexAndXor)
     X += unexAndXor
+
+    #print("activators", activators)
+    #sol = [1208, -1209, 1210, 1211, 1212, 1213, 1214, 1215, 1216, -1217, -1218, -1219, -1220, -1221, -1222, -1223]
+    #X += [[a] for a in sol]    
 
     #encode subsets of P
     for i in range(n):
         #(\neg p_i \vee \mathtt{sat(S_i)})
-        X += sat([primesC[i][j] + [-activators[i]] for j in range(n)], primesB[i], primeActivators[i])
+        satc = sat([primesC[i][j] + [-activators[i]] for j in range(n)], primesB[i], primeActivators[i])
+        X += satc
 
         #\bigwedge_{j \in \{1, \ldots, i-1, i+1, \ldots, n\}} (p_j \leftrightarrow s_{i,j})
         for j in range(n):
             if i == j: continue
             X += [[-activators[j], primeActivators[i][j]]]
             X += [[-primeActivators[i][j], activators[j]]]
+
 
     #X \implies sat(P)
     PsatCNF, PsatAct = tseitinOnCnf(sat(C, B, activators), current)
@@ -222,25 +231,21 @@ def exMUS(constraints, unex):
     current = XAct
     main = PsatCNF + XCNF + [[-XAct, PsatAct]]
 
+
     primeActivatorsFlatten = []
     for subset in primeActivators:
         for act in subset:
             primeActivatorsFlatten.append(act)
 
-    currents = [i for i in range(primeActivators[-1][-1] + 1, current + 1)]
+    currents = [i for i in range(primeActivators[-1][-1] + 1, current + 1) if i not in unexCurrents]
 
-    print("p cnf {} {}\n".format(maxVar(main), len(main)))
-    print("Vars", Vars)
-    print()
-    print("PrimeVars", primeVars)
-    print()
-    print("Currents", currents)
 
     result = "p cnf {} {}\n".format(maxVar(main), len(main))
-    result += "a " + " ".join([str(i) for i in activators + primeActivatorsFlatten]) + " 0 \n"
-    result += "e " + " ".join([str(i) for i in Vars + primeVars + currents]) + " 0 \n"
+    result += "a " + " ".join([str(i) for i in activators + primeActivatorsFlatten + primeVars + unexCurrents]) + " 0 \n"
+    result += "e " + " ".join([str(i) for i in Vars + currents]) + " 0 \n"
     for cl in main:
         result += " ".join([str(l) for l in cl]) + " 0\n"
+
     
     return result, activators
 
@@ -289,6 +294,27 @@ def compute(filename, activators):
     else:
         print("UNSATISFIABLE")
 
+def computeCadet(filename, activators):
+    cmd = "./tools/cadet {}".format(filename)
+    proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
+    (out, err) = proc.communicate()
+    out = out.decode("utf-8")
+    assert "SAT" in out
+    if not "UNSAT" in out: 
+        print("UNSATISFIABLE") #this means that there is no unexplored MUS in the cell
+    else:        
+        Cids = {}
+        for i in range(len(activators)):
+            Cids[activators[i]] = i + 1
+        reading = False
+        for line in out.splitlines():
+            if reading:
+                assert line[0] == "V"
+                MUS = [Cids[int(l)] for l in line.split(" ")[1:] if int(l) in Cids]
+            if "UNSAT" in line:
+                reading = True
+        print("SOLUTION")
+        print(" ".join([str(n) for n in MUS]) + " 0")
 
 def simplify2(filename, result):
     cmd = "./tools/qratpre+ --print-formula {} > {}".format(filename, result)
@@ -310,8 +336,9 @@ if __name__ == "__main__":
     with open(qdimacs, "w") as f:
         f.write(encoding)
     print(qdimacs)
-    if False:
-        simplify2(qdimacs, simpl)
-        compute(simpl, activators)
-        os.remove(qdimacs)
-        os.remove(simpl)
+    #simplify2(qdimacs, simpl)
+    simpl = qdimacs
+    computeCadet(simpl, activators)
+    #computeCadet(qdimacs, activators)
+    #os.remove(qdimacs)
+    #os.remove(simpl)
