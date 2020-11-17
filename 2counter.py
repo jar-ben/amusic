@@ -10,36 +10,110 @@ import argparse
 #parse .gcnf instance, 
 #returns a pair C,B where B contains the base (hard) clauses and C the other clauses
 def parse(filename):
+    C = []
+    B = []
     with open(filename, "r") as f:
         lines = f.readlines()
-        assert lines[0][0] == "p"
-        C = []
-        B = []
-        for line in lines[1:]:
-            line = line.split(" ")
-            cl = [int(i) for i in line[1:-1]]
-            if len(cl) > 0:
-                if line[0] == "{0}":
-                    B.append(cl)
-                else:
+        if filename[-5:] == ".gcnf":
+            for line in lines[1:]:
+                if line[0] in ["p","c"]: continue
+                line = line.split(" ")
+                cl = [int(i) for i in line[1:-1]]
+                if len(cl) > 0:
+                    if line[0] == "{0}":
+                        B.append(cl)
+                    else:
+                        C.append(cl)
+        else:
+            for line in lines[1:]:
+                if line[0] in ["p","c"]: continue
+                line = line.split(" ")
+                cl = [int(i) for i in line[:-1]]
+                if len(cl) > 0:
                     C.append(cl)
     return C,B
+
+def exportGCNF(soft, hard, filename):
+    print("running export for ", filename)
+    with open(filename, "w") as f:
+        maxVar = max([max(abs(l) for l in cl) for cl in soft + hard])
+        f.write("p gcnf {} {} {}\n".format(maxVar, len(soft + hard), len(soft)))
+        for cl in hard:
+            f.write("{0} " + " ".join([str(l) for l in cl]) + " 0\n")
+        clid = 1
+        for cl in soft:
+            f.write("{" + str(clid)  + "} " + " ".join([str(l) for l in cl]) + " 0\n")
+            clid += 1
 
 #returns random Boolean value
 def randomBool():
     return bool(random.getrandbits(1))
 
+def run(cmd, timeout, ttl = 3):
+    proc = sp.Popen([cmd], stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
+    try:
+        (out, err) = proc.communicate(timeout = int(timeout * 1.1) + 1)
+        out = out.decode("utf-8")
+    except sp.TimeoutExpired:
+        proc.kill()
+        try:
+            (out, err) = proc.communicate()
+            out = out.decode("utf-8")
+        except ValueError:
+            if ttl > 0:
+                return run(cmd, timeout, ttl - 1)
+            out = ""
+    return out
+
 class Counter:
     def __init__(self, filename, e, d):
+        self.rid = randint(1,10000000)
         self.filename = filename
         self.C, self.B = parse(filename)
+        self.trimFilename = filename
+        self.autarkyTrim()
         self.MUSes = []
         self.dimension = len(self.C)
         self.XOR = None
         self.tresh = 1 + 9.84 * (1 + (e / (1 + e)))*(1 + 1/e)*(1 + 1/e)
         self.t = int(17 * log(3 / d,2));
         self.checks = 0
-        self.rid = randint(1,10000000)
+
+    def autarkyTrim(self):
+        if ".gcnf" in self.filename: return
+        cmd = "timeout 3600 python3 autarky.py {}".format(self.filename)
+        print(cmd)
+        out = run(cmd, 3600)
+        if "autarky vars" in out:
+            for line in out.splitlines():
+                line = line.rstrip()
+                if line[:2] == "v ":
+                    autarky = [int(c) - 1 for c in line.split()[1:]]
+        else: return
+
+        imu = self.getImu()
+        print(len(self.C), len(autarky), len(set(autarky)))
+        print(autarky)
+
+        C = [self.C[c] for c in sorted(set(autarky))]
+        B = []
+        if len(imu) > 0:
+            B = [self.C[c] for c in imu]
+        print("original size: {}, UMU: {}, IMU: {}".format(len(self.C), len(C), len(B)))
+        self.C, self.B = C, B
+        self.trimFilename = "/var/tmp/input_" + str(self.rid) + ".gcnf"
+        exportGCNF(self.C, self.B, self.trimFilename) 
+
+    def getImu(self):
+        cmd = "timeout 3600 python3 gimu.py {}".format(self.filename)
+        print(cmd)
+        out = run(cmd, 3600)
+        if "imu size" in out and not "imu size: 0" in out:
+            for line in out.splitlines():
+                line = line.rstrip()
+                if line[:2] == "v ":
+                    return [int(c) - 1 for c in line.split()[1:]]
+        else: return []
 
     #generate (and internaly store) a hash function from H_{xor}(dimension, dimension - 1) 
     def generateXOR(self):
@@ -80,7 +154,8 @@ class Counter:
             #    f.write(" ".join([str(-l) for l in MUS]) + " ")
             #    f.write(" ".join([str(l) for l in self.complement(MUS)]) + " 0\n")
             f.write(self.exportXor(m))
-        cmd = "python3 2gqbf.py {} {}".format(self.filename, unexXor)
+        cmd = "python 2gqbf.py {} {}".format(self.trimFilename, unexXor)
+        print(cmd)
         proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
         (out, err) = proc.communicate()
         out = out.decode("utf-8")
@@ -89,7 +164,7 @@ class Counter:
         reading = False
         for line in out.splitlines():
             if reading:
-                print(cmd)
+                #print(cmd)
                 MUS = [int(l) for l in line.split(" ") if int(l) > 0]
                 #print(MUS)
                 return MUS

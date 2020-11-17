@@ -178,8 +178,9 @@ import copy
 def exMUS(constraints, unex):
     C,B  = parse(constraints)
     Vars = variables(C + B) ##these are in the 2nd quantificator level and are Exists
+    print(Vars)
     n = len(C)
-    m = len(Vars)
+    m = max(Vars)
 
     primesC = []
     primesB = []
@@ -295,7 +296,7 @@ def compute(filename, activators):
         print("UNSATISFIABLE")
 
 def computeCadet(filename, activators):
-    cmd = "./tools/cadet {}".format(filename)
+    cmd = "./tools/cadet --minimize {}".format(filename)
     proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
     (out, err) = proc.communicate()
     out = out.decode("utf-8")
@@ -317,7 +318,8 @@ def computeCadet(filename, activators):
         print(" ".join([str(n) for n in MUS]) + " 0")
 
 def simplify2(filename, result):
-    cmd = "./tools/qratpre+ --print-formula {} > {}".format(filename, result)
+    cmd = "./tools/qratpre+ --no-ble --no-qratu --no-qrate --print-formula {} > {}".format(filename, result)
+    #cmd = "./tools/qratpre+ --print-formula {} > {}".format(filename, result)
     proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
     (out, err) = proc.communicate()
     out = out.decode("utf-8")
@@ -335,10 +337,10 @@ if __name__ == "__main__":
     simpl = "/var/tmp/simplified_{}.qdimacs".format(rid)
     with open(qdimacs, "w") as f:
         f.write(encoding)
-    print(qdimacs)
-    #simplify2(qdimacs, simpl)
-    simpl = qdimacs
+    print(qdimacs, simpl)
+    simplify2(qdimacs, simpl)
+    #simpl = qdimacs
     computeCadet(simpl, activators)
     #computeCadet(qdimacs, activators)
     #os.remove(qdimacs)
-    #os.remove(simpl)
+    os.remove(simpl)
