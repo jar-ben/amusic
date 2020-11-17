@@ -82,7 +82,7 @@ class Counter:
     def autarkyTrim(self):
         if ".gcnf" in self.filename: return
         cmd = "timeout 3600 python3 autarky.py {}".format(self.filename)
-        print(cmd)
+        #print(cmd)
         out = run(cmd, 3600)
         if "autarky vars" in out:
             for line in out.splitlines():
@@ -92,21 +92,21 @@ class Counter:
         else: return
 
         imu = self.getImu()
-        print(len(self.C), len(autarky), len(set(autarky)))
-        print(autarky)
+        #print(len(self.C), len(autarky), len(set(autarky)))
+        #print(autarky)
 
         C = [self.C[c] for c in sorted(set(autarky))]
         B = []
         if len(imu) > 0:
             B = [self.C[c] for c in imu]
-        print("original size: {}, UMU: {}, IMU: {}".format(len(self.C), len(C), len(B)))
+        print("original size: {}, autarky: {}, IMU: {}".format(len(self.C), len(C), len(B)))
         self.C, self.B = C, B
         self.trimFilename = "/var/tmp/input_" + str(self.rid) + ".gcnf"
         exportGCNF(self.C, self.B, self.trimFilename) 
 
     def getImu(self):
         cmd = "timeout 3600 python3 gimu.py {}".format(self.filename)
-        print(cmd)
+        #print(cmd)
         out = run(cmd, 3600)
         if "imu size" in out and not "imu size: 0" in out:
             for line in out.splitlines():
@@ -155,7 +155,7 @@ class Counter:
             #    f.write(" ".join([str(l) for l in self.complement(MUS)]) + " 0\n")
             f.write(self.exportXor(m))
         cmd = "python 2gqbf.py {} {}".format(self.trimFilename, unexXor)
-        print(cmd)
+        #print(cmd)
         proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
         (out, err) = proc.communicate()
         out = out.decode("utf-8")

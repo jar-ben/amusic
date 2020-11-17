@@ -1,7 +1,7 @@
 import sys
 from random import randint
 
-#sys.path.insert(0, "/home/xbendik/usr/lib/lib/python2.7/site-packages")
+sys.path.insert(0, "/home/xbendik/usr/lib/lib/python3.7/site-packages")
 def prnt(cnf):
     result = "\n\n\n"
     for cl in cnf:
@@ -177,7 +177,7 @@ def exMUS(constraints, unex):
     C,B  = parse(constraints)
     Vars = variables(C + B) ##these are in the 2nd quantificator level and are Exists
     n = len(C)
-    m = len(Vars)
+    m = max(Vars)
 
     primeC = primeCls(C, m)
     primeB = primeCls(B, m)
