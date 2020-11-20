@@ -68,6 +68,7 @@ def run(cmd, timeout, ttl = 3):
 class Counter:
     def __init__(self, filename, e, d):
         self.rid = randint(1,10000000)
+        self.originalFilename = filename
         self.filename = filename
         self.C, self.B = parse(filename)
         self.trimFilename = filename
@@ -78,6 +79,17 @@ class Counter:
         self.tresh = 1 + 9.84 * (1 + (e / (1 + e)))*(1 + 1/e)*(1 + 1/e)
         self.t = int(17 * log(3 / d,2));
         self.checks = 0
+
+    def initialThresholdCheck(self):
+        if ".gcnf" in self.originalFilename: return self.tresh
+        cmd = "timeout 10 ./unimus " + self.filename
+        out = run(cmd, 10)
+        lastMUS = ""
+        for line in out.splitlines():
+            if "Found MUS" in line: lastMUS = line
+        if lastMUS == "": return self.tresh #no MUS found, we continue with amusic
+        count = int(lastMUS.split("#")[1].split(",")[0])
+        return count
 
     def autarkyTrim(self):
         if ".gcnf" in self.filename: return
@@ -101,7 +113,7 @@ class Counter:
             B = [self.C[c] for c in imu]
         print("original size: {}, autarky: {}, IMU: {}".format(len(self.C), len(C), len(B)))
         self.C, self.B = C, B
-        self.trimFilename = "/var/tmp/input_" + str(self.rid) + ".gcnf"
+        self.trimFilename = "/var/obj/xbendik/input_" + str(self.rid) + ".gcnf"
         exportGCNF(self.C, self.B, self.trimFilename) 
 
     def getImu(self):
@@ -143,7 +155,7 @@ class Counter:
     ## TODO: avoid external calling of gqbf.py, just integrate it
     def getMUS(self, m):
         self.checks += 1
-        unexXor = "/var/tmp/unex_{}.cnf".format(self.rid)
+        unexXor = "/var/obj/xbendik/unex_{}.cnf".format(self.rid)
         with open(unexXor, "w") as f:
             f.write("p cnf 0 0\n")
             for MUS in self.MUSes:
@@ -155,7 +167,7 @@ class Counter:
             #    f.write(" ".join([str(l) for l in self.complement(MUS)]) + " 0\n")
             f.write(self.exportXor(m))
         cmd = "python 2gqbf.py {} {}".format(self.trimFilename, unexXor)
-        #print(cmd)
+        print(cmd)
         proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
         (out, err) = proc.communicate()
         out = out.decode("utf-8")
@@ -241,6 +253,11 @@ class Counter:
         return self.logSatSearch(mPrev)
 
     def run(self):
+        MUSenumCount = self.initialThresholdCheck()
+        print("initial MUS count", MUSenumCount)
+        if MUSenumCount < self.tresh:
+            print("a MUS enumerator identified within a timelimit of 10 seconds only {} MUSes, hence, this is either the exact MUS count or the enumeration is too expensive due to the hardness of the underlying SAT solver calls. Hence, we do not proceed with AMUSIC".format(MUSenumCount))
+            return
         start = time.time()
         counts = []
         m = int(self.dimension / 2)

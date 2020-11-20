@@ -333,8 +333,8 @@ if __name__ == "__main__":
     unex = sys.argv[2]
     encoding, activators = exMUS(filename, unex)
     rid = randint(1,10000000)
-    qdimacs = "/var/tmp/2exencoded_{}.qdimacs".format(rid)
-    simpl = "/var/tmp/simplified_{}.qdimacs".format(rid)
+    qdimacs = "/var/obj/xbendik/2exencoded_{}.qdimacs".format(rid)
+    simpl = "/var/obj/xbendik/simplified_{}.qdimacs".format(rid)
     with open(qdimacs, "w") as f:
         f.write(encoding)
     print(qdimacs, simpl)
