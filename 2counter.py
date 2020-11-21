@@ -1,4 +1,5 @@
 import sys
+import os
 from math import log
 import subprocess as sp
 import random
@@ -6,6 +7,20 @@ import time
 from statistics import median
 from random import randint
 import argparse
+import signal
+from functools import partial
+
+def receiveSignal(tempFiles, signalNumber, frame):
+    print(tempFiles, signalNumber, frame)
+    print('Received signal:', signalNumber)
+    print('Cleaning tmp files')
+    for f in tempFiles:
+        if os.path.exists(f):
+            print("removing", f, "...", end="")
+            os.remove(f)
+            print("removed")
+    sys.exit()
+
 
 #parse .gcnf instance, 
 #returns a pair C,B where B contains the base (hard) clauses and C the other clauses
@@ -79,6 +94,10 @@ class Counter:
         self.tresh = 1 + 9.84 * (1 + (e / (1 + e)))*(1 + 1/e)*(1 + 1/e)
         self.t = int(17 * log(3 / d,2));
         self.checks = 0
+        self.unexXorFilename = "/var/obj/xbendik/unex_{}.cnf".format(self.rid)
+        self.tmpFiles = [self.unexXorFilename]
+        if self.trimFilename != self.filename:
+            self.tmpFiles.append(self.trimFilename)
 
     def initialThresholdCheck(self):
         if ".gcnf" in self.originalFilename: return self.tresh
@@ -155,8 +174,7 @@ class Counter:
     ## TODO: avoid external calling of gqbf.py, just integrate it
     def getMUS(self, m):
         self.checks += 1
-        unexXor = "/var/obj/xbendik/unex_{}.cnf".format(self.rid)
-        with open(unexXor, "w") as f:
+        with open(self.unexXorFilename, "w") as f:
             f.write("p cnf 0 0\n")
             for MUS in self.MUSes:
                 f.write(" ".join([str(-l) for l in MUS]) + " 0\n")
@@ -166,8 +184,8 @@ class Counter:
             #    f.write(" ".join([str(-l) for l in MUS]) + " ")
             #    f.write(" ".join([str(l) for l in self.complement(MUS)]) + " 0\n")
             f.write(self.exportXor(m))
-        cmd = "python 2gqbf.py {} {}".format(self.trimFilename, unexXor)
-        print(cmd)
+        cmd = "python 2gqbf.py {} {}".format(self.trimFilename, self.unexXorFilename)
+        #print(cmd)
         proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
         (out, err) = proc.communicate()
         out = out.decode("utf-8")
@@ -183,6 +201,7 @@ class Counter:
             if "SOLUTION" in line:
                 reading = True
     # returns True if MUS is in the cell and False otherwise
+    # this procedure needs a debug
     def isInCell(self, MUS, m):
         for i in range(m):
             satisfy = len(set(self.XOR[i][1:]).intersection(set(MUS))) % 2 == 1
@@ -195,27 +214,30 @@ class Counter:
         return True
 
     #Counts (and returns) the number of MUSes in the cell given by the m-th prefix of h
-    def bsatXor(self, m):
-        found = 0
+    def bsatXor(self, m, exploredMUSes):
+        print("start of bsatXor, MUSes:", len(self.MUSes), "m:", m)
         self.MUSes = []
-        for MUS in self.MUSes:
-            if self.isInCell(MUS, m):
-                found += 1
-                if found >= self.tresh: return found
-        while found < self.tresh:
+        assert len(exploredMUSes[m]) == 0
+        for i in range(self.dimension -1, m, -1):
+            if len(exploredMUSes[i]) > 0:
+                self.MUSes = exploredMUSes[i][:]
+                exploredMUSes[m] = exploredMUSes[i][:]
+        print("---initial size", len(self.MUSes))
+        while len(self.MUSes) < self.tresh:
             MUS = self.getMUS(m)
             if len(MUS) == 0:
-                return found
+                return len(self.MUSes)
             self.MUSes.append(MUS)
-            found += 1
-        return found
+            exploredMUSes[m].append(MUS)
+        return len(self.MUSes)
 
     def logSatSearch(self, mPrev):        
+        exploredMUSes = [[] for _ in range(self.dimension)]
         low = 0
         high = self.dimension - 1
         finalCount = -1
         finalM = -1
-        count = self.bsatXor(mPrev)
+        count = self.bsatXor(mPrev, exploredMUSes)
         if count >= self.tresh:
             low = mPrev
         else:
@@ -223,7 +245,7 @@ class Counter:
             finalCount = count
             finalM = mPrev
             print("first count: ", count, " with m:", mPrev)
-            count = self.bsatXor(mPrev - 1)
+            count = self.bsatXor(mPrev - 1, exploredMUSes)
             print("second count: ", count, " with m:", mPrev - 1)
             if count >= self.tresh:
                 return finalCount * pow(2,finalM), finalM
@@ -234,7 +256,7 @@ class Counter:
 
         m = int((low + high) / 2)
         while high - low > 1:
-            count = self.bsatXor(m)
+            count = self.bsatXor(m, exploredMUSes)
             print("m: {}, {}".format(m, count))
             if count >= self.tresh:
                 low = m
@@ -303,4 +325,10 @@ if __name__ == "__main__":
     print("delta guarantee:", args.delta)
     print("threshold", counter.tresh)
     print("iterations to complete:", counter.t)
-    counter.run()
+
+    #clean temporal files in case of timeout or other kind of interruption
+    signal.signal(signal.SIGHUP, partial(receiveSignal, counter.tmpFiles))
+    signal.signal(signal.SIGINT, partial(receiveSignal, counter.tmpFiles))
+    signal.signal(signal.SIGTERM, partial(receiveSignal, counter.tmpFiles))
+
+counter.run()
