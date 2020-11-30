@@ -188,7 +188,7 @@ class Counter:
         cmd = "python 2gqbf.py {} {}".format(self.trimFilename, self.unexXorFilename)
         if self.QBF == "3QBF":
             cmd = "python gqbf.py {} {}".format(self.trimFilename, self.unexXorFilename)
-        print(cmd)
+        #print(cmd)
         proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
         (out, err) = proc.communicate()
         out = out.decode("utf-8")
