@@ -16,8 +16,11 @@ Download QRATPre+ [5] from https://github.com/lonsing/qratpreplus and build it. 
 #### CADET
 Download CADET [6] from https://github.com/MarkusRabe/cadet and build it. Copy the binary of cadet to the folder amusic/tools/.
 
+#### UWrMaxSat
+Download UWrMaxSat [7] https://github.com/marekpiotrow/UWrMaxSat and build it. Copy the binary of uwrmaxsat to the folder amusic/tools/.
+
 Note that we use also a single MUS extractor muser2 [2]; we distribute its binary with our tool (you do not have to build it).
-After installing all the necessary tools, the folder amusic/tools/ should contain four binaries: caqe, muser2-para, qratpre+, cadet.
+After installing all the necessary tools, the folder amusic/tools/ should contain five binaries: caqe, muser2-para, qratpre+, cadet, and uwrmaxsat.
 
 ## Running our tool
 You can run the tool via "python3 counter.py <input_file>", e.g.:
@@ -67,6 +70,7 @@ If you use AMUSIC in your research, please, cite our paper that presented AMUSIC
 * [4] https://github.com/ltentrup/caqe
 * [5] https://github.com/lonsing/qratpreplus
 * [6] https://github.com/MarkusRabe/cadet
+* [7] https://github.com/marekpiotrow/UWrMaxSat
 
 ## Contact
 In case of any troubles, do not hesitate to contact me, Jaroslav Bendik, the developer of the tool, at xbendik=at=gmail.com.
