@@ -1,6 +1,5 @@
 import sys
 from random import randint
-#sys.path.insert(0, "/home/xbendik/usr/lib/lib/python2.7/site-packages")
 import signal
 from functools import partial
 import os
@@ -345,8 +344,8 @@ if __name__ == "__main__":
     unex = sys.argv[2]
     encoding, activators = exMUS(filename, unex)
     rid = randint(1,10000000)
-    qdimacs = "/var/obj/xbendik/2exencoded_{}.qdimacs".format(rid)
-    simpl = "/var/obj/xbendik/simplified_{}.qdimacs".format(rid)
+    qdimacs = "./tmp/2exencoded_{}.qdimacs".format(rid)
+    simpl = "./tmp/simplified_{}.qdimacs".format(rid)
 
     #clean up tmp files in case of timeout or other kind of interruption
     tmpFiles = [qdimacs, simpl]

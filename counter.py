@@ -1,4 +1,5 @@
 import sys
+import os
 from math import log
 import subprocess as sp
 import random
@@ -6,6 +7,19 @@ import time
 from statistics import median
 from random import randint
 import argparse
+import signal
+from functools import partial
+
+def receiveSignal(tempFiles, signalNumber, frame):
+    print('Received signal:', signalNumber)
+    print('Cleaning tmp files')
+    for f in tempFiles:
+        if os.path.exists(f):
+            print("removing", f, "...", end="")
+            os.remove(f)
+            print("removed")
+    sys.exit()
+
 
 #parse .gcnf instance, 
 #returns a pair C,B where B contains the base (hard) clauses and C the other clauses
@@ -68,6 +82,7 @@ def run(cmd, timeout, ttl = 3):
 class Counter:
     def __init__(self, filename, e, d):
         self.rid = randint(1,10000000)
+        self.originalFilename = filename
         self.filename = filename
         self.C, self.B = parse(filename)
         self.trimFilename = filename
@@ -78,6 +93,22 @@ class Counter:
         self.tresh = 1 + 9.84 * (1 + (e / (1 + e)))*(1 + 1/e)*(1 + 1/e)
         self.t = int(17 * log(3 / d,2));
         self.checks = 0
+        self.unexXorFilename = "./tmp/unex_{}.cnf".format(self.rid)
+        self.tmpFiles = [self.unexXorFilename]
+        if self.trimFilename != self.filename:
+            self.tmpFiles.append(self.trimFilename)
+        self.QBF = "3QBF"
+
+    def initialThresholdCheck(self):
+        if ".gcnf" in self.originalFilename: return self.tresh
+        cmd = "timeout 10 ./unimus " + self.filename
+        out = run(cmd, 10)
+        lastMUS = ""
+        for line in out.splitlines():
+            if "Found MUS" in line: lastMUS = line
+        if lastMUS == "": return self.tresh #no MUS found, we continue with amusic
+        count = int(lastMUS.split("#")[1].split(",")[0])
+        return count
 
     def autarkyTrim(self):
         if ".gcnf" in self.filename: return
@@ -101,7 +132,7 @@ class Counter:
             B = [self.C[c] for c in imu]
         print("original size: {}, autarky: {}, IMU: {}".format(len(self.C), len(C), len(B)))
         self.C, self.B = C, B
-        self.trimFilename = "/var/tmp/input_" + str(self.rid) + ".gcnf"
+        self.trimFilename = "./tmp/input_" + str(self.rid) + ".gcnf"
         exportGCNF(self.C, self.B, self.trimFilename) 
 
     def getImu(self):
@@ -143,8 +174,7 @@ class Counter:
     ## TODO: avoid external calling of gqbf.py, just integrate it
     def getMUS(self, m):
         self.checks += 1
-        unexXor = "/var/tmp/unex_{}.cnf".format(self.rid)
-        with open(unexXor, "w") as f:
+        with open(self.unexXorFilename, "w") as f:
             f.write("p cnf 0 0\n")
             for MUS in self.MUSes:
                 f.write(" ".join([str(-l) for l in MUS]) + " 0\n")
@@ -154,8 +184,11 @@ class Counter:
             #    f.write(" ".join([str(-l) for l in MUS]) + " ")
             #    f.write(" ".join([str(l) for l in self.complement(MUS)]) + " 0\n")
             f.write(self.exportXor(m))
-        cmd = "python gqbf.py {} {}".format(self.trimFilename, unexXor)
-        #print(cmd)
+        assert self.QBF in ["2QBF", "3QBF"]
+        cmd = "python 2gqbf.py {} {}".format(self.trimFilename, self.unexXorFilename)
+        if self.QBF == "3QBF":
+            cmd = "python gqbf.py {} {}".format(self.trimFilename, self.unexXorFilename)
+        print(cmd)
         proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
         (out, err) = proc.communicate()
         out = out.decode("utf-8")
@@ -171,6 +204,7 @@ class Counter:
             if "SOLUTION" in line:
                 reading = True
     # returns True if MUS is in the cell and False otherwise
+    # this procedure needs a debug
     def isInCell(self, MUS, m):
         for i in range(m):
             satisfy = len(set(self.XOR[i][1:]).intersection(set(MUS))) % 2 == 1
@@ -183,27 +217,30 @@ class Counter:
         return True
 
     #Counts (and returns) the number of MUSes in the cell given by the m-th prefix of h
-    def bsatXor(self, m):
-        found = 0
+    def bsatXor(self, m, exploredMUSes):
+        print("start of bsatXor, MUSes:", len(self.MUSes), "m:", m)
         self.MUSes = []
-        for MUS in self.MUSes:
-            if self.isInCell(MUS, m):
-                found += 1
-                if found >= self.tresh: return found
-        while found < self.tresh:
+        assert len(exploredMUSes[m]) == 0
+        for i in range(self.dimension -1, m, -1):
+            if len(exploredMUSes[i]) > 0:
+                self.MUSes = exploredMUSes[i][:]
+                exploredMUSes[m] = exploredMUSes[i][:]
+        print("---initial size", len(self.MUSes))
+        while len(self.MUSes) < self.tresh:
             MUS = self.getMUS(m)
             if len(MUS) == 0:
-                return found
+                return len(self.MUSes)
             self.MUSes.append(MUS)
-            found += 1
-        return found
+            exploredMUSes[m].append(MUS)
+        return len(self.MUSes)
 
     def logSatSearch(self, mPrev):        
+        exploredMUSes = [[] for _ in range(self.dimension)]
         low = 0
         high = self.dimension - 1
         finalCount = -1
         finalM = -1
-        count = self.bsatXor(mPrev)
+        count = self.bsatXor(mPrev, exploredMUSes)
         if count >= self.tresh:
             low = mPrev
         else:
@@ -211,7 +248,7 @@ class Counter:
             finalCount = count
             finalM = mPrev
             print("first count: ", count, " with m:", mPrev)
-            count = self.bsatXor(mPrev - 1)
+            count = self.bsatXor(mPrev - 1, exploredMUSes)
             print("second count: ", count, " with m:", mPrev - 1)
             if count >= self.tresh:
                 return finalCount * pow(2,finalM), finalM
@@ -222,7 +259,7 @@ class Counter:
 
         m = int((low + high) / 2)
         while high - low > 1:
-            count = self.bsatXor(m)
+            count = self.bsatXor(m, exploredMUSes)
             print("m: {}, {}".format(m, count))
             if count >= self.tresh:
                 low = m
@@ -241,6 +278,11 @@ class Counter:
         return self.logSatSearch(mPrev)
 
     def run(self):
+        MUSenumCount = self.initialThresholdCheck()
+        print("initial MUS count", MUSenumCount)
+        if MUSenumCount < self.tresh:
+            print("a MUS enumerator identified within a timelimit of 10 seconds only {} MUSes, hence, this is either the exact MUS count or the enumeration is too expensive due to the hardness of the underlying SAT solver calls. Hence, we do not proceed with AMUSIC".format(MUSenumCount))
+            return
         start = time.time()
         counts = []
         m = int(self.dimension / 2)
@@ -273,6 +315,7 @@ if __name__ == "__main__":
     parser.add_argument("--delta", "-d", type = restricted_float, help = "Set the delta parameter, i.e., controls the probabilistic guarantees of the algorithm. Allowed values: float (0-1). Default value is 0.2.", default = 0.2)
     parser.add_argument("--threshold", type = int, help = "Set manually the value of threshold. By default, the value of threshold is computed based on the epsilon parameter to guarantee the approximate guarantees that are required/set by epsilon. If you set threshold manually, you affect the guaranteed approximate factor of the algorithm.")
     parser.add_argument("--iterations", type = int, help = "Set manually the number of iterations the algorithm performs to find the MUS count estimate. By default, the number of iterations is determined by the value of the delta parameter (which controls the required probabilistic guarantees). By manually setting the number of iterations, you affect the probabilistic guarantees.")
+    parser.add_argument("--qbf2", action="count", help = "Use the 2QBF encoding for finding an MUS in the cell instead of the default 3QBF encoding.")
     parser.add_argument("input_file", help = "A path to the input file. Either a .cnf or a .gcnf instance. See ./examples/")
     args = parser.parse_args()
 
@@ -281,9 +324,16 @@ if __name__ == "__main__":
         counter.tresh = args.threshold
     if args.iterations is not None:
         counter.t = args.iterations
+    counter.QBF = "2QBF" if args.qbf2 is not None else "3QBF"
 
     print("epsilon guarantee:", args.epsilon)
     print("delta guarantee:", args.delta)
     print("threshold", counter.tresh)
     print("iterations to complete:", counter.t)
-    counter.run()
+
+    #clean temporal files in case of timeout or other kind of interruption
+    signal.signal(signal.SIGHUP, partial(receiveSignal, counter.tmpFiles))
+    signal.signal(signal.SIGINT, partial(receiveSignal, counter.tmpFiles))
+    signal.signal(signal.SIGTERM, partial(receiveSignal, counter.tmpFiles))
+
+counter.run()
