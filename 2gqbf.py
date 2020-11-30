@@ -1,7 +1,21 @@
 import sys
 from random import randint
-
 #sys.path.insert(0, "/home/xbendik/usr/lib/lib/python2.7/site-packages")
+import signal
+from functools import partial
+import os
+
+def receiveSignal(tempFiles, signalNumber, frame):
+    print(tempFiles, signalNumber, frame)
+    print('Received signal:', signalNumber)
+    print('Cleaning tmp files')
+    for f in tempFiles:
+        if os.path.exists(f):
+            print "removing", f, "...",
+            os.remove(f)
+            print("removed")
+    sys.exit()
+
 def prnt(cnf):
     result = "\n\n\n"
     for cl in cnf:
@@ -325,8 +339,6 @@ def simplify2(filename, result):
     out = out.decode("utf-8")
     print("simplified")
 
-import sys
-import os
 if __name__ == "__main__":
     assert len(sys.argv) > 2
     filename = sys.argv[1]
@@ -335,12 +347,18 @@ if __name__ == "__main__":
     rid = randint(1,10000000)
     qdimacs = "/var/obj/xbendik/2exencoded_{}.qdimacs".format(rid)
     simpl = "/var/obj/xbendik/simplified_{}.qdimacs".format(rid)
+
+    #clean up tmp files in case of timeout or other kind of interruption
+    tmpFiles = [qdimacs, simpl]
+    signal.signal(signal.SIGHUP, partial(receiveSignal, tmpFiles))
+    signal.signal(signal.SIGINT, partial(receiveSignal, tmpFiles))
+    signal.signal(signal.SIGTERM, partial(receiveSignal, tmpFiles))
+
     with open(qdimacs, "w") as f:
         f.write(encoding)
     print(qdimacs, simpl)
-    simplify2(qdimacs, simpl)
-    #simpl = qdimacs
+    #simplify2(qdimacs, simpl)
+    simpl = qdimacs
     computeCadet(simpl, activators)
-    #computeCadet(qdimacs, activators)
-    #os.remove(qdimacs)
-    os.remove(simpl)
+    if os.path.exists(qdimacs): os.remove(qdimacs)
+    if os.path.exists(simpl): os.remove(simpl)

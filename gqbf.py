@@ -274,7 +274,7 @@ def simplify2(filename, result):
     proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
     (out, err) = proc.communicate()
     out = out.decode("utf-8")
-    print("simplified")
+    print("simplified", result)
 
 import sys
 import os
@@ -284,8 +284,8 @@ if __name__ == "__main__":
     unex = sys.argv[2]
     encoding, activators = exMUS(filename, unex)
     rid = randint(1,10000000)
-    qdimacs = "/var/tmp/2exencoded_{}.qdimacs".format(rid)
-    simpl = "/var/tmp/simplified_{}.qdimacs".format(rid)
+    qdimacs = "/var/obj/xbendik/2exencoded_{}.qdimacs".format(rid)
+    simpl = "/var/obj/xbendik/simplified_{}.qdimacs".format(rid)
     with open(qdimacs, "w") as f:
         f.write(encoding)
     simplify2(qdimacs, simpl)
