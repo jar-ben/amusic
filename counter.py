@@ -217,24 +217,58 @@ class Counter:
         return True
 
     #Counts (and returns) the number of MUSes in the cell given by the m-th prefix of h
-    def bsatXor(self, m, exploredMUSes):
+    def bsatXor(self, m, exploredMUSes, limit = None):
+        if limit == None: limit = self.tresh
         print("start of bsatXor, MUSes:", len(self.MUSes), "m:", m)
         self.MUSes = []
-        assert len(exploredMUSes[m]) == 0
+        #assert len(exploredMUSes[m]) == 0
+        exploredMUSes[m] = []
         for i in range(self.dimension -1, m, -1):
             if len(exploredMUSes[i]) > 0:
                 self.MUSes = exploredMUSes[i][:]
                 exploredMUSes[m] = exploredMUSes[i][:]
         print("---initial size", len(self.MUSes))
-        while len(self.MUSes) < self.tresh:
+        while len(self.MUSes) < limit:
             MUS = self.getMUS(m)
             if len(MUS) == 0:
                 return len(self.MUSes)
             self.MUSes.append(MUS)
             exploredMUSes[m].append(MUS)
         return len(self.MUSes)
+    
+    def hybridSearch(self, mPrev):        
+        exploredMUSes = [[] for _ in range(self.dimension)]
 
-    def logSatSearch(self, mPrev):        
+        #first identify the first cell with at least one MUS
+        prevSafe = self.dimension - 1
+        m = prevSafe
+        count = self.bsatXor(m, exploredMUSes, 1)
+        step = 1
+        while True:
+            while count == 0:
+                prevSafe = m
+                m -= step
+                count = self.bsatXor(m, exploredMUSes, 1)
+                step *= 2
+            if prevSafe == m + 1: break        
+            m = prevSafe
+            step = 1
+            count = 0
+        
+        
+        finalCount = self.bsatXor(m, exploredMUSes)
+        assert finalCount > 0
+        if finalCount >= self.tresh:
+            return 0,0
+        while m > 0:
+            m -= 1
+            count = self.bsatXor(m, exploredMUSes)
+            print("count", count, m)
+            if count >= self.tresh: break
+            finalCount = count
+        return finalCount * pow(2,m + 1), m + 1 
+                
+    def mPrevLinearSearch(self, mPrev):        
         exploredMUSes = [[] for _ in range(self.dimension)]
         low = 0
         high = self.dimension - 1
@@ -257,25 +291,24 @@ class Counter:
                 finalCount = count
                 finalM = mPrev - 1
 
-        m = int((low + high) / 2)
-        while high - low > 1:
-            count = self.bsatXor(m, exploredMUSes)
-            print("m: {}, {}".format(m, count))
-            if count >= self.tresh:
-                low = m
-            else:
-                high = m
-                if count >  finalCount:
-                    finalCount = count
-                    finalM = m
-            m = int((low + high) / 2)
-        if finalM < 0:
+        m = high
+        if finalCount < 1: finalCouddnt = self.bsatXor(m, exploredMUSes)
+        if finalCount >= self.tresh:
             return 0,0
-        return finalCount * pow(2,finalM), finalM 
+        while m > 0:
+            m -= 1
+            count = self.bsatXor(m, exploredMUSes)
+            print("count", count, m)
+            if count >= self.tresh: break
+            finalCount = count
+        return finalCount * pow(2,m + 1), m + 1 
 
     def approxMC(self, mPrev):
         self.generateXOR()
-        return self.logSatSearch(mPrev)
+        if mPrev == 0:
+            return self.hybridSearch(mPrev)
+        else:
+            return self.mPrevLinearSearch(mPrev)
 
     def run(self):
         MUSenumCount = self.initialThresholdCheck()
@@ -285,7 +318,7 @@ class Counter:
             return
         start = time.time()
         counts = []
-        m = int(self.dimension / 2)
+        m = 0
         for iteration in range(self.t):
             print("iteration: " + str(iteration + 1))
             count, m = self.approxMC(m)
