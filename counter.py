@@ -88,6 +88,7 @@ class Counter:
         self.trimFilename = filename
         self.autarkyTrim()
         self.MUSes = []
+        self.counts = []
         self.dimension = len(self.C)
         self.XOR = None
         self.tresh = 1 + 9.84 * (1 + (e / (1 + e)))*(1 + 1/e)*(1 + 1/e)
@@ -185,9 +186,9 @@ class Counter:
             #    f.write(" ".join([str(l) for l in self.complement(MUS)]) + " 0\n")
             f.write(self.exportXor(m))
         assert self.QBF in ["2QBF", "3QBF"]
-        cmd = "python 2gqbf.py {} {}".format(self.trimFilename, self.unexXorFilename)
+        cmd = "python3 2gqbf.py {} {}".format(self.trimFilename, self.unexXorFilename)
         if self.QBF == "3QBF":
-            cmd = "python gqbf.py {} {}".format(self.trimFilename, self.unexXorFilename)
+            cmd = "python3 gqbf.py {} {}".format(self.trimFilename, self.unexXorFilename)
         #print(cmd)
         proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
         (out, err) = proc.communicate()
@@ -238,7 +239,7 @@ class Counter:
     
     def hybridSearch(self, mPrev):        
         exploredMUSes = [[] for _ in range(self.dimension)]
-
+        print("start of hybrid search")
         #first identify the first cell with at least one MUS
         prevSafe = self.dimension - 1
         m = prevSafe
@@ -248,13 +249,13 @@ class Counter:
             while count == 0:
                 prevSafe = m
                 m -= step
+                m = max(1, m)
                 count = self.bsatXor(m, exploredMUSes, 1)
                 step *= 2
             if prevSafe == m + 1: break        
             m = prevSafe
             step = 1
             count = 0
-        
         
         finalCount = self.bsatXor(m, exploredMUSes)
         assert finalCount > 0
@@ -268,7 +269,11 @@ class Counter:
             finalCount = count
         return finalCount * pow(2,m + 1), m + 1 
                 
-    def mPrevLinearSearch(self, mPrev):        
+    def mPrevLinearSearch(self, mPrev):       
+        #if the last value of m was tight, i.e., the MUS count was close to the threshold, try first a bit larger cell to avoid 
+        #exceeding the threshold
+        if len(self.counts) > 0 and self.counts[-1] > 0.75*self.tresh:
+            mPrev = min(mPrev + 1, self.dimension - 1) # try a bit larger cell first 
         exploredMUSes = [[] for _ in range(self.dimension)]
         low = 0
         high = self.dimension - 1
@@ -317,15 +322,14 @@ class Counter:
             print("a MUS enumerator identified within a timelimit of 10 seconds only {} MUSes, hence, this is either the exact MUS count or the enumeration is too expensive due to the hardness of the underlying SAT solver calls. Hence, we do not proceed with AMUSIC".format(MUSenumCount))
             return
         start = time.time()
-        counts = []
         m = 0
         for iteration in range(self.t):
             print("iteration: " + str(iteration + 1))
             count, m = self.approxMC(m)
             if count > 0:
-                counts.append(count)
+                self.counts.append(count)
                 t = float(time.time() - start)
-                print("# of MUSes in the last iteration: {}, average: {}, median: {}, m: {}, checks: {}, MUSes: {}, time: {}".format(count, sum(counts)/len(counts), median(counts), m, self.checks, len(self.MUSes), t))
+                print("# of MUSes in the last iteration: {}, average: {}, median: {}, m: {}, checks: {}, MUSes: {}, time: {}".format(count, sum(self.counts)/len(self.counts), median(self.counts), m, self.checks, len(self.MUSes), t))
             else:
                 print("bsat failed")
 
