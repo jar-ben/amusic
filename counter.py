@@ -11,6 +11,7 @@ import signal
 from functools import partial
 
 def receiveSignal(tempFiles, signalNumber, frame):
+    return
     print('Received signal:', signalNumber)
     print('Cleaning tmp files')
     for f in tempFiles:
@@ -185,10 +186,12 @@ class Counter:
             #    f.write(" ".join([str(-l) for l in MUS]) + " ")
             #    f.write(" ".join([str(l) for l in self.complement(MUS)]) + " 0\n")
             f.write(self.exportXor(m))
-        assert self.QBF in ["2QBF", "3QBF"]
+        assert self.QBF in ["2QBF", "3QBF", "2QBFBeta"]
         cmd = "python3 2gqbf.py {} {}".format(self.trimFilename, self.unexXorFilename)
         if self.QBF == "3QBF":
             cmd = "python3 gqbf.py {} {}".format(self.trimFilename, self.unexXorFilename)
+        if self.QBF == "2QBFBeta":
+            cmd = "python3 2gqbfBeta.py {} {}".format(self.trimFilename, self.unexXorFilename)
         #print(cmd)
         proc = sp.Popen([cmd], stdout=sp.PIPE, shell=True)
         (out, err) = proc.communicate()
@@ -353,6 +356,7 @@ if __name__ == "__main__":
     parser.add_argument("--threshold", type = int, help = "Set manually the value of threshold. By default, the value of threshold is computed based on the epsilon parameter to guarantee the approximate guarantees that are required/set by epsilon. If you set threshold manually, you affect the guaranteed approximate factor of the algorithm.")
     parser.add_argument("--iterations", type = int, help = "Set manually the number of iterations the algorithm performs to find the MUS count estimate. By default, the number of iterations is determined by the value of the delta parameter (which controls the required probabilistic guarantees). By manually setting the number of iterations, you affect the probabilistic guarantees.")
     parser.add_argument("--qbf2", action="count", help = "Use the 2QBF encoding for finding an MUS in the cell instead of the default 3QBF encoding.")
+    parser.add_argument("--qbf2beta", action="count", help = "Use the 2QBF encoding for finding an MUS in the cell instead of the default 3QBF encoding.")
     parser.add_argument("input_file", help = "A path to the input file. Either a .cnf or a .gcnf instance. See ./examples/")
     args = parser.parse_args()
 
@@ -362,6 +366,8 @@ if __name__ == "__main__":
     if args.iterations is not None:
         counter.t = args.iterations
     counter.QBF = "2QBF" if args.qbf2 is not None else "3QBF"
+    if args.qbf2beta:
+        counter.QBF = "2QBFBeta"
 
     print("epsilon guarantee:", args.epsilon)
     print("delta guarantee:", args.delta)

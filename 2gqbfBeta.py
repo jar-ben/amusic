@@ -5,7 +5,6 @@ from functools import partial
 import os
 
 def receiveSignal(tempFiles, signalNumber, frame):
-    print(tempFiles, signalNumber, frame)
     print('Received signal:', signalNumber)
     print('Cleaning tmp files')
     for f in tempFiles:
@@ -144,11 +143,12 @@ def unsat(C, B, activators, current):
 ## intput: C: set C = [c1, ..., cn] of constraints
 ## input: activators: set of activation literals [x1, ..., xn]
 ## output: tseitin cnf formula saying that C using the activators, i.e. \bigwedge_{i}(ci or -xi), is satisfiable
-def sat(C, B, activators):
+def sat(C, B, activators, excluded = []):
     assert len(C) == len(activators)
     n = len(C)
     cnf = []
     for i in range(n):
+        if i in excluded: continue
         cnf.append([-activators[i]] + [l for l in C[i]])
     cnf += B
     return cnf
@@ -190,7 +190,6 @@ import copy
 def exMUS(constraints, unex):
     C,B  = parse(constraints)
     Vars = variables(C + B) ##these are in the 2nd quantificator level and are Exists
-    print(Vars)
     n = len(C)
     m = max(Vars)
 
@@ -206,18 +205,14 @@ def exMUS(constraints, unex):
     primeVars = list(set(primeVars))
 
     activators = [max(primeVars) + i + 1 for i in range(n)] ##these are in 1st quantificator level and are ForAll
-    primeActivators = []
-    for i in range(n):
-        primeActivators.append([max(activators) + j + i*n  for j in range(1, n + 1)])
-
-    current = primeActivators[-1][-1]
+    current = activators[-1]
     X = []
 
     #P is in the cell and unexplored
     tmp_current = current
     unexAndXor, current = parseUnex(unex, activators, current)
     unexCurrents = [i + 1 for i in range(tmp_current, current)]
-    prnt(unexAndXor)
+    #prnt(unexAndXor)
     X += unexAndXor
 
     #print("activators", activators)
@@ -227,15 +222,8 @@ def exMUS(constraints, unex):
     #encode subsets of P
     for i in range(n):
         #(\neg p_i \vee \mathtt{sat(S_i)})
-        satc = sat([primesC[i][j] + [-activators[i]] for j in range(n)], primesB[i], primeActivators[i])
+        satc = sat([primesC[i][j] + [-activators[i]] for j in range(n)], primesB[i], activators, excluded = [i])
         X += satc
-
-        #\bigwedge_{j \in \{1, \ldots, i-1, i+1, \ldots, n\}} (p_j \leftrightarrow s_{i,j})
-        for j in range(n):
-            if i == j: continue
-            X += [[-activators[j], primeActivators[i][j]]]
-            X += [[-primeActivators[i][j], activators[j]]]
-
 
     #X \implies sat(P)
     PsatCNF, PsatAct = tseitinOnCnf(sat(C, B, activators), current)
@@ -243,18 +231,11 @@ def exMUS(constraints, unex):
     XCNF, XAct = tseitinOnCnf(X, current)    
     current = XAct
     main = PsatCNF + XCNF + [[-XAct, PsatAct]]
-
-
-    primeActivatorsFlatten = []
-    for subset in primeActivators:
-        for act in subset:
-            primeActivatorsFlatten.append(act)
-
-    currents = [i for i in range(primeActivators[-1][-1] + 1, current + 1) if i not in unexCurrents]
-
+   
+    currents = [i for i in range(activators[-1] + 1, current + 1) if i not in unexCurrents]
 
     result = "p cnf {} {}\n".format(maxVar(main), len(main))
-    result += "a " + " ".join([str(i) for i in activators + primeActivatorsFlatten + primeVars + unexCurrents]) + " 0 \n"
+    result += "a " + " ".join([str(i) for i in activators + primeVars + unexCurrents]) + " 0 \n"
     result += "e " + " ".join([str(i) for i in Vars + currents]) + " 0 \n"
     for cl in main:
         result += " ".join([str(l) for l in cl]) + " 0\n"
@@ -358,5 +339,6 @@ if __name__ == "__main__":
     #simplify2(qdimacs, simpl)
     simpl = qdimacs
     computeCadet(simpl, activators)
+    #compute(simpl, activators)
     if os.path.exists(qdimacs): os.remove(qdimacs)
     if os.path.exists(simpl): os.remove(simpl)
