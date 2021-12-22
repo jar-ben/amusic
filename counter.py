@@ -100,6 +100,7 @@ class Counter:
         if self.trimFilename != self.filename:
             self.tmpFiles.append(self.trimFilename)
         self.QBF = "3QBF"
+        self.findMAlgo = "hybridSearch"
 
     def initialThresholdCheck(self):
         if ".gcnf" in self.originalFilename: return self.tresh
@@ -239,7 +240,31 @@ class Counter:
             self.MUSes.append(MUS)
             exploredMUSes[m].append(MUS)
         return len(self.MUSes)
-    
+  
+
+    def findMPlainBinarySearch(self, mPrev):
+        exploredMUSes = [[] for _ in range(self.dimension)]
+        print("start of plain binary search")
+        low = 0
+        high = self.dimension - 1
+        finalCount = -1
+        finalM = -1
+        m = int((low + high) / 2)
+        while high - low > 1:
+            count = self.bsatXor(m, exploredMUSes)
+            print("m: {}, {}".format(m, count))
+            if count >= self.tresh:
+                low = m
+            else:
+                high = m
+                if count >  finalCount:
+                    finalCount = count
+                    finalM = m
+            m = int((low + high) / 2)
+        if finalM < 0:
+            return 0,0
+        return finalCount * pow(2,finalM), finalM 
+
     def hybridSearch(self, mPrev):        
         exploredMUSes = [[] for _ in range(self.dimension)]
         print("start of hybrid search")
@@ -311,10 +336,53 @@ class Counter:
             finalCount = count
         return finalCount * pow(2,m + 1), m + 1 
 
+    def logSatSearch(self, mPrev):        
+            low = 0
+            high = self.dimension - 1
+            finalCount = -1
+            finalM = -1
+            count = self.bsatXor(mPrev)
+            if count >= self.tresh:
+                low = mPrev
+            else:
+                high = mPrev
+                finalCount = count
+                finalM = mPrev
+                print("first count: ", count, " with m:", mPrev)
+                count = self.bsatXor(mPrev - 1)
+                print("second count: ", count, " with m:", mPrev - 1)
+                if count >= self.tresh:
+                    return finalCount * pow(2,finalM), finalM
+                else:
+                    high = mPrev - 1
+                    finalCount = count
+                    finalM = mPrev - 1
+
+            m = int((low + high) / 2)
+            while high - low > 1:
+                count = self.bsatXor(m)
+                print("m: {}, {}".format(m, count))
+                if count >= self.tresh:
+                    low = m
+                else:
+                    high = m
+                    if count >  finalCount:
+                        finalCount = count
+                        finalM = m
+                m = int((low + high) / 2)
+            if finalM < 0:
+                return 0,0
+            return finalCount * pow(2,finalM), finalM 
+
     def approxMC(self, mPrev):
         self.generateXOR()
         if mPrev == 0:
-            return self.hybridSearch(mPrev)
+            if self.findMAlgo == "plainBinary":
+                result = self.findMPlainBinarySearch(mPrev)
+            else:
+                result = self.hybridSearch(mPrev)
+            print("FINDMCHECKS:", self.checks)
+            return result
         else:
             return self.mPrevLinearSearch(mPrev)
 
@@ -358,6 +426,7 @@ if __name__ == "__main__":
     parser.add_argument("--qbf2", action="count", help = "Use the 2QBF encoding for finding an MUS in the cell instead of the default 3QBF encoding.")
     parser.add_argument("--qbf2beta", action="count", help = "Use the 2QBF encoding for finding an MUS in the cell instead of the default 3QBF encoding.")
     parser.add_argument("input_file", help = "A path to the input file. Either a .cnf or a .gcnf instance. See ./examples/")
+    parser.add_argument("--findm-algo", default = "hybridSearch")
     args = parser.parse_args()
 
     counter = Counter(args.input_file, args.epsilon, args.delta)
@@ -368,7 +437,8 @@ if __name__ == "__main__":
     counter.QBF = "2QBF" if args.qbf2 is not None else "3QBF"
     if args.qbf2beta:
         counter.QBF = "2QBFBeta"
-
+    counter.findMAlgo = args.findm_algo
+    
     print("epsilon guarantee:", args.epsilon)
     print("delta guarantee:", args.delta)
     print("threshold", counter.tresh)
