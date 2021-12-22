@@ -241,6 +241,53 @@ class Counter:
             exploredMUSes[m].append(MUS)
         return len(self.MUSes)
   
+    def findMGalloping(self, mPrev):
+        exploredMUSes = [[] for _ in range(self.dimension)]
+        print("start of plain galloping search")
+        low = 0
+        high = self.dimension - 1
+        finalCount = -1
+        finalM = -1
+        bigCell = {i: -1 for i in range(low - 1, high + 2)}
+        bigCell[-1] = 1
+        bigCell[high + 1] = 0
+        cellCounts = {i: 0 for i in range(low -1, high + 2)}
+        cellCounts[-1] = self.tresh
+        cellCounts[high + 1] = 0
+        m = 0
+        m = int((low + high) / 2)
+        while True:
+            count = self.bsatXor(m, exploredMUSes)           
+            cellCounts[m] = count
+            print("m: {}, {}".format(m, count))
+            if count >= self.tresh:
+                if bigCell[m + 1] == 0:
+                    return cellCounts[m + 1], m + 1
+                for i in range(m + 1):
+                    bigCell[i] = 1
+                low = m
+                if 2*m < self.dimension:
+                    m = 2*m
+                    if m == 0:
+                        m = 1
+                else:
+                    m = int((high + m) / 2)
+                if m >= high:
+                    m = high - 1
+                if m <= low:
+                    m = low + 1
+            else:
+                if bigCell[m - 1] == 1:
+                    return cellCounts[m], m
+                for i in range(m, self.dimension):
+                    bigCell[i] = 0
+                high = m
+                m = int((m + low)/2)
+                if m >= high:
+                    m = high - 1
+                if m <= low:
+                    m = low + 1
+
 
     def findMPlainBinarySearch(self, mPrev):
         exploredMUSes = [[] for _ in range(self.dimension)]
@@ -379,6 +426,8 @@ class Counter:
         if mPrev == 0:
             if self.findMAlgo == "plainBinary":
                 result = self.findMPlainBinarySearch(mPrev)
+            elif self.findMAlgo == "galloping":
+                result = self.findMGalloping(mPrev)
             else:
                 result = self.hybridSearch(mPrev)
             print("FINDMCHECKS:", self.checks)
